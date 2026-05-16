@@ -13,15 +13,33 @@
 import { jidNormalizedUser } from 'baileys'
 import { injectSendHelpers } from './helper/send.js'
 
+const groupCache = new Map()
+
+async function getGroupMetadata(feb, jid, retry = 2) {
+  if (groupCache.has(jid)) return groupCache.get(jid)
+  try {
+    const meta = await feb.groupMetadata(jid)
+    groupCache.set(jid, meta)
+    setTimeout(() => groupCache.delete(jid), 12e4)
+    return meta
+  } catch {
+    if (retry > 0) {
+      await new Promise(r => setTimeout(r, 1000))
+      return getGroupMetadata(feb, jid, retry - 1)
+    }
+    return null
+  }
+}
+
 export default async function serialize(feb, msg, store) {
   if (!msg || !msg.message) return null
 
   const m = {}
-  m.raw = msg
 
-  m.id      = msg.key.id
-  m.chat    = msg.key.remoteJid
-  m.fromMe  = msg.key.fromMe
+  m.raw    = msg
+  m.id     = msg.key.id
+  m.chat   = msg.key.remoteJid
+  m.fromMe = msg.key.fromMe
 
   const rawSender = msg.key.fromMe
     ? feb.user?.id
@@ -30,6 +48,16 @@ export default async function serialize(feb, msg, store) {
   m.sender   = jidNormalizedUser(rawSender)
   m.isGroup  = m.chat.endsWith('@g.us')
   m.pushName = msg.pushName || null
+
+  m.groupMetadata = null
+  if (m.isGroup) {
+    const meta      = await getGroupMetadata(feb, m.chat) || {}
+    m.groupMetadata = meta           // m.groupMetadata?.subject
+    m.groupName     = meta.subject   || null
+    m.participants  = meta.participants || []
+    m.groupDesc     = meta.desc      || null
+    m.groupOwner    = meta.owner     || null
+  }
 
   if (msg.message?.reactionMessage?.key) {
     const rKey   = msg.message.reactionMessage.key
@@ -91,11 +119,11 @@ export default async function serialize(feb, msg, store) {
     const quotedRaw = reStored?.raw || null
 
     m.quoted = {
-      id      : quotedId,
-      sender  : quotedSender,
-      pushName: quotedRaw?.pushName || null,
-      raw     : quotedRaw,
-      message : quotedRaw?.message || contextInfo.quotedMessage || null,
+      id        : quotedId,
+      sender    : quotedSender,
+      pushName  : quotedRaw?.pushName || null,
+      raw       : quotedRaw,
+      message   : quotedRaw?.message || contextInfo.quotedMessage || null,
       serialized: reStored?.serialized || null
     }
   } else {

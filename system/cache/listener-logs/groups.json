@@ -156,5 +156,16 @@
     "id": "120363423077197619@g.us",
     "action": "group_unlocked",
     "announce": false
+  },
+  {
+    "timestamp": "2026-05-15T07:25:34.224Z",
+    "id": "120363423077197619@g.us",
+    "action": "group_description_change"
+  },
+  {
+    "timestamp": "2026-05-16T02:28:19.442Z",
+    "id": "120363423077197619@g.us",
+    "action": "group_subject_change",
+    "subject": "AngelinaEmpire || Furry Indonesia solid solid"
   }
 ]

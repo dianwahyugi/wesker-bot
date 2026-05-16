@@ -6,3 +6,4 @@ auth/
 .env
 system/cache/*.json
 !system/cache/.keep
+/system/cache/listener-logs/*.json

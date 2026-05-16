@@ -31,7 +31,7 @@ import { fileURLToPath } from 'url'
 
 import dotenv from 'dotenv'
 dotenv.config({ path: './.env' })
-
+import                                './system/helper/clean.js'
 import { setDebug }              from './system/helper/debug.js'
 import PluginManager             from './system/manager/plugin.js'
 import PrefixManager             from './system/manager/prefix.js'
@@ -40,6 +40,7 @@ import { createPresenceHandler } from './system/handler/presence-update.js'
 import { CoreListener }          from './system/listener/core-listener.js'
 import { BOT_INFO }              from './system/helper/index.js'
 import { addUser }               from './system/helper/access.js'
+
 
 setDebug(process.env.DEBUG === '1')
 

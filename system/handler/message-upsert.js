@@ -25,7 +25,10 @@ import { patchFeb }           from '../helper/feb-patch.js'
 import { getReactionCmdDB }   from '../helper/reaction-cmd.js'
 import { isFakeQEnabled }     from '../helper/fakeq.js'
 import { logMessage }         from '../helper/message-logger.js'
+import { Settings }           from '../helper/settings.js'
+import { handleStatus }       from './status.js'
 
+const s = Settings()
 const startTime = Math.floor(Date.now() / 1000)
 
 export async function handleMessageUpsert(feb, messages, type = 'notify') {
@@ -46,8 +49,12 @@ export async function handleMessageUpsert(feb, messages, type = 'notify') {
 
       const m = await serialize(feb, msg, messageStore)
       if (!m) continue
+
+      if (await handleStatus(feb, msg)) continue
+      if (s.msgAutoread) await feb.readMessages([m.raw.key]).catch(() => {})
       const isOfflineSync = logMessage(m, type, startTime)
       if (isOfflineSync) continue
+
       const rawMsg =
         msg.message?.viewOnceMessage?.message ||
         msg.message?.ephemeralMessage?.message ||

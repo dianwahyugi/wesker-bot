@@ -40,9 +40,10 @@ import { createPresenceHandler } from './system/handler/presence-update.js'
 import { CoreListener }          from './system/listener/core-listener.js'
 import { BOT_INFO }              from './system/helper/index.js'
 import { addUser }               from './system/helper/access.js'
-
+import { loadSettings }         from './system/helper/settings.js'
 
 setDebug(process.env.DEBUG === '1')
+loadSettings()
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const logger    = pino({ level: 'silent' })
@@ -301,7 +302,7 @@ nl()
 
   feb.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return
-    await handleMessageUpsert(feb, messages)
+    await handleMessageUpsert(feb, messages, type)
   })
 
   feb.ev.on('presence.update', createPresenceHandler(feb))

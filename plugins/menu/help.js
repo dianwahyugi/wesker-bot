@@ -14,11 +14,11 @@
  * sebagai karya sendiri tanpa izin tertulis.
  * ════════════════════════════════════════════ */
 
-import crypto from 'node:crypto'
+import fs    from 'fs'
 import fetch from 'node-fetch'
 
-const DEFAULT_THUMB =
-  'https://api.azbry.com/api/wesker.jpg'
+const VIDEO_PATH  = './assets/shinichi.mp4'
+const DEFAULT_URL = 'https://api.azbry.com/api/wesker.jpg'
 
 async function getThumbBuffer(url) {
   try {
@@ -31,111 +31,77 @@ async function getThumbBuffer(url) {
 }
 
 export default {
-  name: 'help',
-  command: ['help'],
-  category: ['main'],
+  name       : 'help',
+  command    : ['help'],
+  category   : ['main'],
   description: 'tampilkan daftar command + detail',
 
-  async run({ feb, m, raw, args, wesker, other }) {
+  async run({ feb, m, args, wesker }) {
     const pm = wesker
     if (!pm) return
 
-    const plugins = pm.getAllPlugins()
+    const plugins = pm.getPublicPlugins()
+    const video   = fs.readFileSync(VIDEO_PATH)
 
+    /* ─ help <command> ─ */
     if (args[0]) {
       const target = args[0].toLowerCase()
-
       const plugin = plugins.find(p =>
-        Array.isArray(p.command) &&
-        p.command.includes(target)
+        Array.isArray(p.command) && p.command.includes(target)
       )
 
-      if (!plugin) {
-        return feb.relayMessage(
-          m.chat,
-          {
-            extendedTextMessage: {
-              text: 'command tidak ditemukan'
-            }
-          },
-          {
-            messageId: crypto.randomUUID(),
-            quoted: raw
-          }
-        )
-      }
+      if (!plugin) return m.reply('command tidak ditemukan')
 
-      const thumbUrl =
-        plugin.thumbnail || DEFAULT_THUMB
-
-      const thumb =
+      const thumbUrl = plugin.thumbnail || DEFAULT_URL
+      const thumb    =
         (await getThumbBuffer(thumbUrl)) ||
-        (await getThumbBuffer(DEFAULT_THUMB))
+        (await getThumbBuffer(DEFAULT_URL))
 
-      const text =
-`• command   : ${plugin.command[0]}
-• category  : ${plugin.category?.[0] || 'other'}
-• aliases   : ${plugin.command.join(', ')}
-
+      const caption =
+`• command    : ${plugin.command[0]}
+• category   : ${plugin.category?.[0] || 'other'}
+• aliases    : ${plugin.command.join(', ')}
 • description:
 ${plugin.description || 'tidak ada deskripsi'}`
 
-      return feb.relayMessage(
+      return feb.sendMessage(
         m.chat,
         {
-          extendedTextMessage: {
-            text,
-            contextInfo: {
-              externalAdReply: {
-                title: 'seven minutes',
-                body: 'informasi command',
-                mediaType: 1,
-                thumbnail: thumb
-              }
-            }
-          }
+          video      : video,
+          gifPlayback: true,
+          caption,
         },
-        {
-          messageId: crypto.randomUUID(),
-          quoted: raw
-        }
+        { quoted: m.raw }
       )
     }
 
-    let text = 'command information'
+    /* ─ help (semua) ─ */
     const map = new Map()
-
     for (const p of plugins) {
-      const cat =
-        (p.category?.[0] || 'other').toLowerCase()
+      const cat = (p.category?.[0] || 'other').toLowerCase()
       if (!map.has(cat)) map.set(cat, [])
       map.get(cat).push(p)
     }
 
+    let text = 'command information\n\n'
     for (const [cat, list] of [...map.entries()].sort()) {
       text += `❯ ${cat}\n`
-      for (const p of list.sort((a, b) =>
-        a.command[0].localeCompare(b.command[0])
-      )) {
+      for (const p of list.sort((a, b) => a.command[0].localeCompare(b.command[0]))) {
         text += `• ${p.command[0]}\n`
         text += `  └ ${p.description || 'no desc'}\n`
       }
       text += '\n'
     }
+    text += 'ketik *help <command>* untuk detail'
 
-    text += 'ketik help <command> untuk detail'
-
-    return feb.relayMessage(
+    return feb.sendMessage(
       m.chat,
       {
-        extendedTextMessage: {
-          text
-        }
+        video      : video,
+        gifPlayback: true,
+        caption    : text
       },
-      {
-        messageId: crypto.randomUUID(),
-        quoted: raw
-      }
+      { quoted: m.raw }
     )
   }
 }

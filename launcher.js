@@ -88,4 +88,21 @@ function startBot() {
   })
 }
 
+function startTgBot() {
+  const tg = spawn('node', ['tg-id-checker.js'], {
+    stdio: 'inherit',
+    shell: true
+  })
+
+  tg.on('exit', code => {
+    if (code !== 0) {
+      process.stdout.write(`\n  ${c.dim}⟡ tg-bot exit (${code}) · restart in 5s${c.reset}\n`)
+      setTimeout(startTgBot, 5000)
+    }
+  })
+
+  process.stdout.write(`  ${c.green}⟡${c.reset} ${c.dim}telegram id-checker aktif${c.reset}\n`)
+}
+
+startTgBot()
 startBot()

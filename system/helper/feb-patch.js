@@ -1,35 +1,38 @@
 /* ════════════════════════════════════════════
  * Wesker-MD  ╌  febry wesker
  * ════════════════════════════════════════════ */
-
 import { isFakeQEnabled } from './fakeq.js'
 
 const WA_PARTICIPANT = '0@s.whatsapp.net'
-
 const MSG_TYPES_WITH_CTX = [
   'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage',
   'stickerMessage', 'documentMessage', 'locationMessage', 'contactMessage',
   'interactiveMessage'
 ]
+
+function genIosId() {
+  return '3A' + [...Array(18)]
+    .map(() => Math.floor(Math.random() * 16).toString(16).toUpperCase())
+    .join('')
+}
+
 function buildDefaultCtx(m) {
   return {
-    participant: WA_PARTICIPANT,
+    participant  : WA_PARTICIPANT,
     quotedMessage: { conversation: m?.text || '' },
-    mentionedJid: m?.sender ? [m.sender] : []
+    mentionedJid : m?.sender ? [m.sender] : []
   }
 }
 
 function normalizeCtx(ctx, defaultCtx) {
   if (!ctx) return defaultCtx
-
   if (ctx.participant === WA_PARTICIPANT || ctx.__skipPatch) return ctx
-
   const { stanzaId, participant, ...rest } = ctx
   return {
     ...rest,
-    participant: WA_PARTICIPANT,
+    participant  : WA_PARTICIPANT,
     quotedMessage: ctx.quotedMessage || defaultCtx.quotedMessage,
-    mentionedJid: ctx.mentionedJid?.length
+    mentionedJid : ctx.mentionedJid?.length
       ? ctx.mentionedJid
       : defaultCtx.mentionedJid
   }
@@ -38,9 +41,7 @@ function normalizeCtx(ctx, defaultCtx) {
 function processSendMessage(content, defaultCtx) {
   if (!content || typeof content !== 'object') return content
   if (content.delete || content.edit || content.react) return content
-
   if (!isFakeQEnabled()) return content
-
   return {
     ...content,
     contextInfo: normalizeCtx(content.contextInfo, defaultCtx)
@@ -49,14 +50,11 @@ function processSendMessage(content, defaultCtx) {
 
 function processRelayMessage(content, defaultCtx) {
   if (!content || typeof content !== 'object') return content
-
   if (!isFakeQEnabled()) return content
-
   const inner =
     content.viewOnceMessage?.message ||
     content.ephemeralMessage?.message ||
     content
-
   for (const type of MSG_TYPES_WITH_CTX) {
     if (!inner[type]) continue
     inner[type] = {
@@ -65,11 +63,9 @@ function processRelayMessage(content, defaultCtx) {
     }
     return content
   }
-
   if (inner.text !== undefined) {
     inner.contextInfo = normalizeCtx(inner.contextInfo, defaultCtx)
   }
-
   return content
 }
 
@@ -85,18 +81,24 @@ function patchSockMethods(feb, defaultCtx) {
     get(target, prop) {
 
       if (prop === 'sendMessage') {
-        return async (jid, content, opts) => {
+        return async (jid, content, opts = {}) => {
+          if (!opts.messageId) opts.messageId = genIosId()
+
           if (!isFakeQEnabled()) {
             return target.sendMessage(jid, content, opts)
           }
           content = processSendMessage(content, defaultCtx)
-          opts = stripQuotedOpts(opts)
+          opts    = stripQuotedOpts(opts)
+          if (!opts.messageId) opts.messageId = genIosId()
           return target.sendMessage(jid, content, opts)
         }
       }
 
       if (prop === 'relayMessage') {
-        return async (jid, content, opts) => {
+        return async (jid, content, opts = {}) => {
+          // ── spoof ID ke format iOS ──
+          if (!opts.messageId) opts.messageId = genIosId()
+
           if (!isFakeQEnabled()) {
             return target.relayMessage(jid, content, opts)
           }
@@ -112,15 +114,12 @@ function patchSockMethods(feb, defaultCtx) {
 
 function patchMReply(m, feb, patchedFeb, defaultCtx) {
   m.reply = (text, opts = {}) => {
-
     if (!isFakeQEnabled()) {
       return feb.sendMessage(m.chat, { text }, { quoted: m.raw, ...opts })
     }
-
     const content = processSendMessage({ text, ...opts }, defaultCtx)
     return patchedFeb.sendMessage(m.chat, content)
   }
-
   return m
 }
 

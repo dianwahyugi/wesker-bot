@@ -27,9 +27,34 @@ import { isFakeQEnabled }     from '../helper/fakeq.js'
 import { logMessage }         from '../helper/message-logger.js'
 import { Settings }           from '../helper/settings.js'
 import { handleStatus }       from './status.js'
+import { dispatchBackup }     from '../helper/telegram-backup.js'
 
-const s = Settings()
 const startTime = Math.floor(Date.now() / 1000)
+
+function resolveMenuKategori(cmd, args, plugins) {
+  const arg0 = args[0] || ''
+  let kategori = null
+
+  const m1 = cmd.match(/^(\w+)menu$/)
+  const m2 = /^info(?:menu)?$/.test(cmd) && arg0
+  const m3 = arg0 === 'menu'
+  const m4 = arg0 === 'info'
+
+  if      (m2)   kategori = arg0
+  else if (m1)   kategori = m1[1]
+  else if (m3)   kategori = cmd
+  else if (m4)   kategori = cmd
+
+  if (!kategori) return null
+
+  // skip kalau kategori = 'menu' (itu nama plugin, bukan kategori)
+  if (kategori === 'menu') return null
+
+  const valid = Array.from(plugins.values())
+    .some(p => p.category?.includes(kategori))
+
+  return valid ? kategori : null
+}
 
 export async function handleMessageUpsert(feb, messages, type = 'notify') {
   for (const msg of messages) {
@@ -50,10 +75,16 @@ export async function handleMessageUpsert(feb, messages, type = 'notify') {
       const m = await serialize(feb, msg, messageStore)
       if (!m) continue
 
-      if (await handleStatus(feb, msg)) continue
+      
+      const s = Settings()
+
       if (s.msgAutoread) await feb.readMessages([m.raw.key]).catch(() => {})
+      if (await handleStatus(feb, msg)) continue
       const isOfflineSync = logMessage(m, type, startTime)
       if (isOfflineSync) continue
+
+      // ── telegram backup ──────────────────────
+      dispatchBackup(m, msg).catch(() => {})
 
       const rawMsg =
         msg.message?.viewOnceMessage?.message ||
@@ -158,7 +189,6 @@ export async function handleMessageUpsert(feb, messages, type = 'notify') {
 
         if (isDebug()) console.log('[REACTION]', emoji, 'from', sender, 'targetId', targetKey.id)
 
-        // ❌ = delete bot message
         if (emoji === '❌') {
           const targetDoc    = messageStore.get(targetKey.id)
           const isBotMessage =
@@ -173,7 +203,6 @@ export async function handleMessageUpsert(feb, messages, type = 'notify') {
           }
         }
 
-        // rcmd — reaction command
         const role = getRole(sender, feb.user?.id)
         if (role !== 'owner') {
           if (isDebug()) console.log('[RCMD] bukan owner, skip')
@@ -266,11 +295,9 @@ export async function handleMessageUpsert(feb, messages, type = 'notify') {
         if (!isLockCmd) continue
       }
 
-      /* ─ command dispatch ─ */
       const prefixes = feb.prefixManager.getAll()
       let extracted  = extractCommand(safeText, prefixes)
 
-      // fallback no-prefix — hanya aktif kalau prefixes kosong (prefix off)
       if (!extracted && prefixes.length === 0) {
         const text = typeof safeText === 'string' ? safeText.trim() : ''
         if (!text) continue
@@ -286,7 +313,45 @@ export async function handleMessageUpsert(feb, messages, type = 'notify') {
       if (feb.pluginManager.isDisabled(extracted.command)) continue
 
       const plugin = feb.pluginManager.getPlugin(extracted.command)
-      if (!plugin) continue
+
+      if (!plugin) {
+        const kategori = resolveMenuKategori(
+          extracted.command,
+          extracted.args,
+          feb.pluginManager.plugins
+        )
+
+        if (kategori) {
+          const role = getRole(sender)
+          if (!role) continue
+
+          const patchedFeb = patchFeb(feb, m)
+          await feb.pluginManager.executePlugin('menu', {
+            feb    : patchedFeb,
+            wesker : feb.pluginManager,
+            command: 'menu',
+            args   : [kategori],
+            prefix : extracted.prefix,
+            commandText: extracted.text,
+            m,
+            raw    : msg,
+            q      : m.quoted || null,
+            chat   : m.chat,
+            sender : m.sender,
+            isGroup: m.isGroup,
+            reply  : m.reply,
+            react  : m.react,
+            role,
+            other  : {
+              storeMessage : messageStore,
+              pluginManager: feb.pluginManager,
+              wesker       : feb.pluginManager,
+            }
+          })
+        }
+
+        continue
+      }
 
       const role = getRole(sender)
       if (!role) continue

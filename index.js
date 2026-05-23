@@ -25,6 +25,7 @@ import { Boom }          from '@hapi/boom'
 import pino              from 'pino'
 import qrcode            from 'qrcode-terminal'
 import fs                from 'fs'
+import { execSync }      from 'child_process'
 import path              from 'path'
 import crypto            from 'crypto'
 import { fileURLToPath } from 'url'
@@ -93,6 +94,32 @@ function ask(prompt) {
       resolve(data.replace(/\r?\n$/, '').trim())
     })
   })
+}
+
+function checkUpstreamUpdate() {
+  try {
+    execSync('git fetch upstream', { stdio: 'ignore' })
+
+    const behind = execSync('git rev-list HEAD..upstream/main --count', {
+      encoding: 'utf8'
+    }).trim()
+
+    const count = parseInt(behind, 10)
+
+    if (count > 0) {
+      nl()
+      W(`  ${c.bold}${c.yellow}⚠  update tersedia${c.reset}\n`)
+      W(`  ${c.dim}  ada ${c.white}${count} commit baru${c.reset}${c.dim} dari upstream${c.reset}\n`)
+      W(`  ${c.dim}  jalankan: ${c.white}git merge upstream/main${c.reset}${c.dim} untuk update${c.reset}\n`)
+      nl()
+    } else {
+      W(`  ${c.dim}  versi terkini · tidak ada update dari upstream${c.reset}\n`)
+      nl()
+    }
+  } catch {
+    W(`  ${c.dim}  cek update gagal · pastikan git tersedia${c.reset}\n`)
+    nl()
+  }
 }
 
 async function handleAuth() {
@@ -275,6 +302,9 @@ if (debugOn) {
   W(`  ${c.yellow}  nonaktif${c.reset}  ${c.dim}console tidak menampilkan aktivitas bot${c.reset}\n`)
   W(`  ${c.dim}  ketik ${c.white}debug on${c.reset}${c.dim} untuk mengaktifkan logs${c.reset}\n`)
 }
+
+W(`  ${c.bold}update${c.reset}\n`)
+checkUpstreamUpdate()
 
 sep()
 nl()

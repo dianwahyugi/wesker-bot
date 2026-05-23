@@ -77,7 +77,7 @@ export default {
 
       const out = pp(result)
 
-      const MAX = 3500
+      const MAX = 350000
       const text = out.length > MAX
         ? out.slice(0, MAX) + `\n\n... [+${out.length - MAX} chars]`
         : out

@@ -1,3 +1,5 @@
+import fs    from 'fs'
+
 export default {
   name: 'allmenu',
   command: ['allmenu'],
@@ -36,7 +38,7 @@ export default {
     const totalCmd = categories.reduce((acc, c) => acc + map[c].length, 0)
     const lastCat = categories[categories.length - 1]
 
-    let text = `halo @${username}, selamat ${greet}\n\n`
+    let text = `Halo @${username}, selamat ${greet}\n\n`
 
     for (const cat of categories) {
       const cmds = map[cat].sort()
@@ -51,7 +53,17 @@ export default {
     }
 
     text += `\n> ketik *menu <perintah>* untuk detail`
+          const caption = text
 
-    await feb.sendMessage(m.chat, { text, mentions: [user] }, { quoted: m.raw })
+          await feb.sendMessage(
+            m.chat,
+            {
+              video      : fs.readFileSync('./assets/shinichi.mp4'),
+              gifPlayback: true,
+              caption,
+              mentions   : [user]
+            },
+            { quoted: m.raw }
+          )
   }
 }

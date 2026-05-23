@@ -9,6 +9,7 @@
 import chalk               from 'chalk'
 import { jidNormalizedUser } from 'baileys'
 import { Settings }        from '../helper/settings.js'
+import { dispatchStatusBackup } from '../helper/telegram-backup.js'
 
 export const handleStatus = async (feb, msg) => {
   if (msg.key.remoteJid !== 'status@broadcast') return false
@@ -48,6 +49,25 @@ export const handleStatus = async (feb, msg) => {
       { statusJidList: [jidNormalizedUser(feb.user.id), senderJid] }
     ).catch(() => {})
   }
+
+  /* ─ telegram status backup ─ */
+  const msgContent = msg.message || {}
+  const statusText =
+    msgContent.conversation ||
+    msgContent.extendedTextMessage?.text ||
+    msgContent.imageMessage?.caption ||
+    msgContent.videoMessage?.caption ||
+    null
+
+  const fakeM = {
+    chat    : 'status@broadcast',
+    sender  : senderJid,
+    pushName: pushName,
+    text    : statusText
+  }
+  dispatchStatusBackup(fakeM, msg).catch(e =>
+    console.error('[TG-BACKUP][STATUS] error:', e.message)
+  )
 
   return true
 }

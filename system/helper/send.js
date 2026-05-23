@@ -28,7 +28,8 @@
  * ════════════════════════════════════════════ */
 import {
   imageToSticker,
-  videoToSticker
+  videoToSticker,
+  writeExif
 } from './sticker.js'
 
 // ── internal: normalize quoted ────────────────
@@ -70,25 +71,25 @@ export function sendVideo(feb, m, video, caption = '', opts = {}) {
 }
 
 export async function sendSticker(feb, m, sticker, opts = {}) {
-
   const {
     quoted,
     crop = false,
-    type = 'image'
+    type = 'image',
+    packname = 'Wesker-MD',
+    author   = 'febry wesker'
   } = opts
 
   let webp
-
   if (type === 'sticker') {
     webp = sticker
-  }
-
-  else if (type === 'video') {
+  } else if (type === 'video') {
     webp = await videoToSticker(sticker, 'mp4', crop)
+  } else {
+    webp = await imageToSticker(sticker, crop)
   }
 
-  else {
-    webp = await imageToSticker(sticker, crop)
+  if (packname || author) {
+    webp = await writeExif(webp, { packname, author })
   }
 
   return feb.sendMessage(
